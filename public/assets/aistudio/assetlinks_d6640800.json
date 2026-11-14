@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "fun.cozyesports.www.twa",
+        "sha256_cert_fingerprints": ["A0:BA:6F:87:3D:AB:1A:B3:77:E1:85:CD:79:B8:98:86:27:84:0C:34:38:8D:0F:4F:50:82:5D:D7:EB:F3:81:C7"]
+      }
+    }]

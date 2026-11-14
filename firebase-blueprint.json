@@ -1,0 +1,250 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Authenticated gamer profile, in-game IDs, and Cozy Coin wallet balance.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "email": { "type": "string", "format": "email", "maxLength": 150 },
+        "phone": { "type": "string", "maxLength": 24 },
+        "coins": { "type": "number" },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "bgmiIgn": { "type": "string", "maxLength": 60 },
+        "bgmiId": { "type": "string", "maxLength": 40 },
+        "freefireIgn": { "type": "string", "maxLength": 60 },
+        "freefireId": { "type": "string", "maxLength": 40 },
+        "minecraftUsername": { "type": "string", "maxLength": 60 },
+        "ign": { "type": "string", "maxLength": 60 },
+        "gameUid": { "type": "string", "maxLength": 40 },
+        "lastActionId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "email", "coins", "createdAt", "updatedAt"]
+    },
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Public esports tournament metadata without room credentials.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "title": { "type": "string", "minLength": 2, "maxLength": 120 },
+        "game": { "type": "string", "enum": ["bgmi", "freefire", "minecraft", "codm", "all"] },
+        "map": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "format": { "type": "string", "enum": ["Solo", "Duo", "Squad"] },
+        "entryFee": { "type": "number" },
+        "prizePool": { "type": "number" },
+        "prizeBreakdown": { "type": "object" },
+        "maxSlots": { "type": "number" },
+        "registeredCount": { "type": "number" },
+        "startTime": { "type": "string", "maxLength": 80 },
+        "startTimestamp": { "type": "number" },
+        "status": { "type": "string", "enum": ["upcoming", "live", "completed"] },
+        "credentialsVisibleBeforeMinutes": { "type": "number" },
+        "rules": { "type": "array" },
+        "bannerGradient": { "type": "string", "maxLength": 120 },
+        "serverRegion": { "type": "string", "maxLength": 40 },
+        "version": { "type": "string", "maxLength": 60 },
+        "tag": { "type": "string", "maxLength": 40 },
+        "image": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "game", "map", "format", "entryFee", "prizePool", "maxSlots", "registeredCount", "startTime", "startTimestamp", "status", "createdAt", "updatedAt"]
+    },
+    "TournamentPlayer": {
+      "title": "TournamentPlayer",
+      "description": "Registered player slot inside a tournament.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "maxLength": 80 },
+        "ign": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "gameUid": { "type": "string", "minLength": 1, "maxLength": 60 },
+        "joinedAt": { "type": "string", "maxLength": 60 },
+        "avatar": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "ign", "gameUid", "joinedAt", "createdAt"]
+    },
+    "TournamentRoomSecret": {
+      "title": "TournamentRoomSecret",
+      "description": "Protected custom room ID and password accessible only to registered players and admins.",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string", "maxLength": 120 },
+        "roomPassword": { "type": "string", "maxLength": 120 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["updatedAt"]
+    },
+    "TopupRequest": {
+      "title": "TopupRequest",
+      "description": "UPI UTR or Google Play Redeem Code coin recharge submission.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "maxLength": 80 },
+        "userIgn": { "type": "string", "maxLength": 60 },
+        "userEmail": { "type": "string", "maxLength": 150 },
+        "inrAmount": { "type": "number" },
+        "coins": { "type": "number" },
+        "utr": { "type": "string", "minLength": 6, "maxLength": 64 },
+        "paymentMethod": { "type": "string", "enum": ["upi", "play_code"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "submittedAt": { "type": "string", "maxLength": 60 },
+        "notes": { "type": "string", "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userName", "userIgn", "inrAmount", "coins", "utr", "paymentMethod", "status", "submittedAt", "createdAt"]
+    },
+    "UsedUtr": {
+      "title": "UsedUtr",
+      "description": "Registry of 12-digit UPI UTR numbers already verified and credited to prevent duplicate reuse.",
+      "type": "object",
+      "properties": {
+        "utr": { "type": "string", "pattern": "^[0-9]{12}$", "maxLength": 12 },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "inrAmount": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["utr", "userId", "inrAmount", "createdAt"]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "Player UPI payout withdrawal request.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userName": { "type": "string", "maxLength": 80 },
+        "userIgn": { "type": "string", "maxLength": 60 },
+        "coins": { "type": "number" },
+        "inrAmount": { "type": "number" },
+        "upiId": { "type": "string", "minLength": 4, "maxLength": 120 },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"] },
+        "requestedAt": { "type": "string", "maxLength": 60 },
+        "payoutRef": { "type": "string", "maxLength": 80 },
+        "notes": { "type": "string", "maxLength": 240 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "userName", "userIgn", "coins", "inrAmount", "upiId", "status", "requestedAt", "createdAt"]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable wallet ledger entry for coin credits and debits.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "type": { "type": "string", "enum": ["topup", "entry_fee", "prize", "admin_grant", "refund", "withdrawal"] },
+        "amount": { "type": "number" },
+        "coins": { "type": "number" },
+        "title": { "type": "string", "maxLength": 140 },
+        "description": { "type": "string", "maxLength": 280 },
+        "timestamp": { "type": "string", "maxLength": 60 },
+        "status": { "type": "string", "enum": ["completed", "pending", "rejected"] },
+        "utr": { "type": "string", "maxLength": 64 },
+        "upiId": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "type", "amount", "coins", "title", "description", "timestamp", "status", "createdAt"]
+    },
+    "RedeemCode": {
+      "title": "RedeemCode",
+      "description": "Organizer-created instant Cozy Coin gift code.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "code": { "type": "string", "minLength": 4, "maxLength": 32, "pattern": "^[A-Z0-9_\\-]+$" },
+        "coins": { "type": "number" },
+        "maxUses": { "type": "number" },
+        "usedBy": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 60 },
+        "active": { "type": "boolean" }
+      },
+      "required": ["id", "code", "coins", "maxUses", "usedBy", "createdAt", "active"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Public platform payment and auto-verification settings.",
+      "type": "object",
+      "properties": {
+        "upiId": { "type": "string", "maxLength": 120 },
+        "upiName": { "type": "string", "maxLength": 120 },
+        "supportPhone": { "type": "string", "maxLength": 80 },
+        "supportEmail": { "type": "string", "format": "email", "maxLength": 150 },
+        "coinRate": { "type": "number" },
+        "autoVerifyUpi": { "type": "boolean" },
+        "maxAutoVerifyInr": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["upiId", "upiName", "supportEmail", "coinRate", "autoVerifyUpi", "maxAutoVerifyInr", "updatedAt"]
+    },
+    "AdminAlertLog": {
+      "title": "AdminAlertLog",
+      "description": "Audit log of payment, redeem code, and withdrawal alert notifications sent to cozypixelboy@gmail.com.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "eventType": { "type": "string", "maxLength": 40 },
+        "subject": { "type": "string", "maxLength": 160 },
+        "summary": { "type": "string", "maxLength": 500 },
+        "recipient": { "type": "string", "maxLength": 150 },
+        "emailDispatched": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "userId", "eventType", "subject", "summary", "recipient", "emailDispatched", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private gamer profile and Cozy Coin balance."
+    },
+    "/tournaments/{tournamentId}": {
+      "schema": { "$ref": "#/entities/Tournament" },
+      "description": "Public tournament listings."
+    },
+    "/tournaments/{tournamentId}/players/{playerId}": {
+      "schema": { "$ref": "#/entities/TournamentPlayer" },
+      "description": "Registered tournament players."
+    },
+    "/tournaments/{tournamentId}/secrets/{secretId}": {
+      "schema": { "$ref": "#/entities/TournamentRoomSecret" },
+      "description": "Protected room ID and password for joined players and admins."
+    },
+    "/topupRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/TopupRequest" },
+      "description": "UPI UTR and Google Play Code recharge requests."
+    },
+    "/usedUtrs/{utr}": {
+      "schema": { "$ref": "#/entities/UsedUtr" },
+      "description": "Unique 12-digit UTR ledger preventing reuse."
+    },
+    "/withdrawalRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/WithdrawalRequest" },
+      "description": "Player UPI cashout requests."
+    },
+    "/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/WalletTransaction" },
+      "description": "User wallet transaction ledger."
+    },
+    "/redeemCodes/{codeId}": {
+      "schema": { "$ref": "#/entities/RedeemCode" },
+      "description": "Instant Cozy Coin gift codes."
+    },
+    "/config/{configId}": {
+      "schema": { "$ref": "#/entities/AppConfig" },
+      "description": "Platform configuration."
+    },
+    "/adminAlerts/{alertId}": {
+      "schema": { "$ref": "#/entities/AdminAlertLog" },
+      "description": "Admin email notification history."
+    }
+  }
+}

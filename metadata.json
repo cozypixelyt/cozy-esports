@@ -1,0 +1,6 @@
+{
+  "name": "COZY_ESPORTS - Tournament Platform",
+  "description": "Join daily esports tournaments for BGMI, Free Fire, and Minecraft with Cozy Coins, UPI recharge verification, and in-app developer management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,494 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reusable security primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isVerifiedUser() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isVerifiedUser() && (
+        request.auth.token.email in ['nk6931390@gmail.com', 'cozypixelboy@gmail.com'] ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Validation Helpers
+    function isValidUser(data, userId) {
+      return data.keys().hasAll(['uid', 'name', 'email', 'coins', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'uid', 'name', 'email', 'phone', 'coins', 'avatar',
+          'bgmiIgn', 'bgmiId', 'freefireIgn', 'freefireId', 'minecraftUsername',
+          'ign', 'gameUid', 'lastActionId', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == userId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 150
+        && data.coins is number && data.coins >= 0 && data.coins <= 10000000
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 24))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+        && (!('bgmiIgn' in data) || (data.bgmiIgn is string && data.bgmiIgn.size() <= 60))
+        && (!('bgmiId' in data) || (data.bgmiId is string && data.bgmiId.size() <= 40))
+        && (!('freefireIgn' in data) || (data.freefireIgn is string && data.freefireIgn.size() <= 60))
+        && (!('freefireId' in data) || (data.freefireId is string && data.freefireId.size() <= 40))
+        && (!('minecraftUsername' in data) || (data.minecraftUsername is string && data.minecraftUsername.size() <= 60))
+        && (!('ign' in data) || (data.ign is string && data.ign.size() <= 60))
+        && (!('gameUid' in data) || (data.gameUid is string && data.gameUid.size() <= 40))
+        && (!('lastActionId' in data) || (data.lastActionId is string && isValidId(data.lastActionId)));
+    }
+
+    function isValidUsedUtr(data, utr) {
+      return data.keys().hasAll(['utr', 'userId', 'inrAmount', 'createdAt'])
+        && data.keys().hasOnly(['utr', 'userId', 'inrAmount', 'createdAt'])
+        && data.utr is string && data.utr == utr && data.utr.matches('^[0-9]{12}$')
+        && data.userId is string && isValidId(data.userId)
+        && data.inrAmount is number && data.inrAmount >= 1 && data.inrAmount <= 50000
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTopupRequest(data) {
+      return data.keys().hasAll(['id', 'userId', 'userName', 'userIgn', 'inrAmount', 'coins', 'utr', 'paymentMethod', 'status', 'submittedAt', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'userName', 'userIgn', 'userEmail', 'inrAmount', 'coins', 'utr', 'paymentMethod', 'status', 'submittedAt', 'notes', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 80
+        && data.userIgn is string && data.userIgn.size() >= 1 && data.userIgn.size() <= 60
+        && (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() <= 150))
+        && data.inrAmount is number && data.inrAmount >= 1 && data.inrAmount <= 50000
+        && data.coins is number && data.coins >= 1 && data.coins <= 500000
+        && data.utr is string && data.utr.size() >= 6 && data.utr.size() <= 64
+        && data.paymentMethod in ['upi', 'play_code']
+        && data.status in ['pending', 'approved', 'rejected']
+        && data.submittedAt is string && data.submittedAt.size() <= 60
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 240))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidWithdrawalRequest(data) {
+      return data.keys().hasAll(['id', 'userId', 'userName', 'userIgn', 'coins', 'inrAmount', 'upiId', 'status', 'requestedAt', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'userName', 'userIgn', 'coins', 'inrAmount', 'upiId', 'status', 'requestedAt', 'payoutRef', 'notes', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 80
+        && data.userIgn is string && data.userIgn.size() >= 1 && data.userIgn.size() <= 60
+        && data.coins is number && data.coins >= 1 && data.coins <= 500000
+        && data.inrAmount is number && data.inrAmount >= 1 && data.inrAmount <= 500000
+        && data.upiId is string && data.upiId.size() >= 4 && data.upiId.size() <= 120
+        && data.status in ['pending', 'completed', 'rejected']
+        && data.requestedAt is string && data.requestedAt.size() <= 60
+        && (!('payoutRef' in data) || (data.payoutRef is string && data.payoutRef.size() <= 80))
+        && (!('notes' in data) || (data.notes is string && data.notes.size() <= 240))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidTransaction(data) {
+      return data.keys().hasAll(['id', 'userId', 'type', 'amount', 'coins', 'title', 'description', 'timestamp', 'status', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'type', 'amount', 'coins', 'title', 'description', 'timestamp', 'status', 'utr', 'upiId', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.type in ['topup', 'entry_fee', 'prize', 'admin_grant', 'refund', 'withdrawal']
+        && data.amount is number && data.amount >= 0 && data.amount <= 500000
+        && data.coins is number && data.coins >= -500000 && data.coins <= 500000
+        && data.title is string && data.title.size() >= 1 && data.title.size() <= 140
+        && data.description is string && data.description.size() <= 280
+        && data.timestamp is string && data.timestamp.size() <= 60
+        && data.status in ['completed', 'pending', 'rejected']
+        && (!('utr' in data) || (data.utr is string && data.utr.size() <= 64))
+        && (!('upiId' in data) || (data.upiId is string && data.upiId.size() <= 120))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRedeemCode(data, codeId) {
+      return data.keys().hasAll(['id', 'code', 'coins', 'maxUses', 'usedBy', 'createdAt', 'active'])
+        && data.keys().hasOnly(['id', 'code', 'coins', 'maxUses', 'usedBy', 'createdAt', 'active'])
+        && data.id is string && data.id == codeId
+        && data.code is string && data.code == codeId && data.code.size() >= 4 && data.code.size() <= 32
+        && data.coins is number && data.coins >= 1 && data.coins <= 50000
+        && data.maxUses is number && data.maxUses >= 1 && data.maxUses <= 500
+        && data.usedBy is list && data.usedBy.size() <= 500
+        && (data.usedBy.size() == 0 || data.usedBy[0] is string)
+        && data.createdAt is string && data.createdAt.size() <= 60
+        && data.active is bool;
+    }
+
+    function isValidTournament(data) {
+      return data.keys().hasAll(['id', 'title', 'game', 'map', 'format', 'entryFee', 'prizePool', 'maxSlots', 'registeredCount', 'startTime', 'startTimestamp', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly([
+          'id', 'title', 'game', 'map', 'format', 'entryFee', 'prizePool', 'prizeBreakdown',
+          'maxSlots', 'registeredCount', 'startTime', 'startTimestamp', 'status',
+          'credentialsVisibleBeforeMinutes', 'rules', 'bannerGradient', 'serverRegion', 'version', 'tag', 'image',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 120
+        && data.game in ['bgmi', 'freefire', 'minecraft', 'codm', 'all']
+        && data.map is string && data.map.size() >= 1 && data.map.size() <= 60
+        && data.format in ['Solo', 'Duo', 'Squad']
+        && data.entryFee is number && data.entryFee >= 0 && data.entryFee <= 100000
+        && data.prizePool is number && data.prizePool >= 0 && data.prizePool <= 1000000
+        && (!('prizeBreakdown' in data) || (data.prizeBreakdown is map && data.prizeBreakdown.keys().hasAll(['rank1', 'rank2', 'rank3', 'perKill'])))
+        && data.maxSlots is number && data.maxSlots >= 2 && data.maxSlots <= 200
+        && data.registeredCount is number && data.registeredCount >= 0 && data.registeredCount <= data.maxSlots
+        && data.startTime is string && data.startTime.size() <= 80
+        && data.startTimestamp is number
+        && data.status in ['upcoming', 'live', 'completed']
+        && (!('rules' in data) || (data.rules is list && data.rules.size() <= 20 && (data.rules.size() == 0 || data.rules[0] is string)))
+        && (!('bannerGradient' in data) || (data.bannerGradient is string && data.bannerGradient.size() <= 120))
+        && (!('serverRegion' in data) || (data.serverRegion is string && data.serverRegion.size() <= 40))
+        && (!('version' in data) || (data.version is string && data.version.size() <= 60))
+        && (!('tag' in data) || (data.tag is string && data.tag.size() <= 40))
+        && (!('image' in data) || (data.image is string && data.image.size() <= 500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidTournamentPlayer(data, playerId) {
+      return data.keys().hasAll(['id', 'name', 'ign', 'gameUid', 'joinedAt', 'createdAt'])
+        && data.keys().hasOnly(['id', 'name', 'ign', 'gameUid', 'joinedAt', 'avatar', 'createdAt'])
+        && data.id is string && data.id == playerId
+        && data.name is string && data.name.size() >= 1 && data.name.size() <= 80
+        && data.ign is string && data.ign.size() >= 1 && data.ign.size() <= 60
+        && data.gameUid is string && data.gameUid.size() >= 1 && data.gameUid.size() <= 60
+        && data.joinedAt is string && data.joinedAt.size() <= 60
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+        && data.createdAt is timestamp;
+    }
+
+    function isValidRoomSecret(data) {
+      return data.keys().hasAll(['updatedAt'])
+        && data.keys().hasOnly(['roomId', 'roomPassword', 'updatedAt'])
+        && (!('roomId' in data) || (data.roomId is string && data.roomId.size() <= 120))
+        && (!('roomPassword' in data) || (data.roomPassword is string && data.roomPassword.size() <= 120))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPublicConfig(data) {
+      return data.keys().hasAll(['upiId', 'upiName', 'supportEmail', 'coinRate', 'autoVerifyUpi', 'maxAutoVerifyInr', 'updatedAt'])
+        && data.keys().hasOnly(['upiId', 'upiName', 'supportPhone', 'supportEmail', 'coinRate', 'autoVerifyUpi', 'maxAutoVerifyInr', 'updatedAt'])
+        && data.upiId is string && data.upiId.size() >= 3 && data.upiId.size() <= 120
+        && data.upiName is string && data.upiName.size() >= 1 && data.upiName.size() <= 120
+        && (!('supportPhone' in data) || (data.supportPhone is string && data.supportPhone.size() <= 80))
+        && data.supportEmail is string && data.supportEmail.size() <= 150
+        && data.coinRate is number && data.coinRate >= 1 && data.coinRate <= 100
+        && data.autoVerifyUpi is bool
+        && data.maxAutoVerifyInr is number && data.maxAutoVerifyInr >= 0 && data.maxAutoVerifyInr <= 50000
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidAdminAlert(data) {
+      return data.keys().hasAll(['id', 'userId', 'eventType', 'subject', 'summary', 'recipient', 'emailDispatched', 'createdAt'])
+        && data.keys().hasOnly(['id', 'userId', 'eventType', 'subject', 'summary', 'recipient', 'emailDispatched', 'createdAt'])
+        && isValidId(data.id)
+        && isValidId(data.userId)
+        && data.eventType is string && data.eventType.size() <= 40
+        && data.subject is string && data.subject.size() <= 160
+        && data.summary is string && data.summary.size() <= 500
+        && data.recipient is string && data.recipient == 'cozypixelboy@gmail.com'
+        && data.emailDispatched is bool
+        && data.createdAt is timestamp;
+    }
+
+    // Users Collection (PII + Coins strictly protected)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isValidId(userId)
+        && isOwner(userId)
+        && isValidUser(incoming(), userId)
+        && incoming().coins == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isValidId(userId)
+        && isVerifiedUser()
+        && isValidUser(incoming(), userId)
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            isOwner(userId)
+            && incoming().coins == existing().coins
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'name', 'email', 'phone', 'bgmiIgn', 'bgmiId',
+              'freefireIgn', 'freefireId', 'minecraftUsername',
+              'ign', 'gameUid', 'avatar', 'updatedAt'
+            ])
+          )
+          || (
+            isOwner(userId)
+            && incoming().coins < existing().coins
+            && incoming().coins >= 0
+            && incoming().diff(existing()).affectedKeys().hasOnly(['coins', 'lastActionId', 'updatedAt'])
+          )
+          || (
+            isOwner(userId)
+            && incoming().diff(existing()).affectedKeys().hasOnly(['coins', 'lastActionId', 'updatedAt'])
+            && 'lastActionId' in incoming()
+            && isValidId(incoming().lastActionId)
+            && existsAfter(/databases/$(database)/documents/topupRequests/$(incoming().lastActionId))
+            && getAfter(/databases/$(database)/documents/topupRequests/$(incoming().lastActionId)).data.userId == request.auth.uid
+            && getAfter(/databases/$(database)/documents/topupRequests/$(incoming().lastActionId)).data.status == 'approved'
+            && getAfter(/databases/$(database)/documents/topupRequests/$(incoming().lastActionId)).data.paymentMethod == 'upi'
+            && incoming().coins == existing().coins + getAfter(/databases/$(database)/documents/topupRequests/$(incoming().lastActionId)).data.coins
+          )
+          || (
+            isOwner(userId)
+            && incoming().diff(existing()).affectedKeys().hasOnly(['coins', 'lastActionId', 'updatedAt'])
+            && 'lastActionId' in incoming()
+            && isValidId(incoming().lastActionId)
+            && exists(/databases/$(database)/documents/redeemCodes/$(incoming().lastActionId))
+            && get(/databases/$(database)/documents/redeemCodes/$(incoming().lastActionId)).data.active == true
+            && !(request.auth.uid in get(/databases/$(database)/documents/redeemCodes/$(incoming().lastActionId)).data.usedBy)
+            && getAfter(/databases/$(database)/documents/redeemCodes/$(incoming().lastActionId)).data.usedBy.size() == get(/databases/$(database)/documents/redeemCodes/$(incoming().lastActionId)).data.usedBy.size() + 1
+            && incoming().coins == existing().coins + get(/databases/$(database)/documents/redeemCodes/$(incoming().lastActionId)).data.coins
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // Used UTR Ledger (prevents duplicate UTR reuse)
+    match /usedUtrs/{utr} {
+      allow get: if isValidId(utr) && isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isValidId(utr)
+        && isVerifiedUser()
+        && utr.matches('^[0-9]{12}$')
+        && isValidUsedUtr(incoming(), utr)
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time
+        && !exists(/databases/$(database)/documents/usedUtrs/$(utr));
+      allow update, delete: if false;
+    }
+
+    // Top-up Requests (UPI Auto-Verify & Google Play Codes)
+    match /topupRequests/{requestId} {
+      allow get: if isValidId(requestId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(requestId)
+        && isVerifiedUser()
+        && isValidTopupRequest(incoming())
+        && incoming().id == requestId
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time
+        && (
+          (incoming().status == 'pending' && incoming().paymentMethod == 'play_code')
+          || (incoming().status == 'pending' && incoming().paymentMethod == 'upi')
+          || (
+            incoming().status == 'approved'
+            && incoming().paymentMethod == 'upi'
+            && incoming().utr.matches('^[0-9]{12}$')
+            && existsAfter(/databases/$(database)/documents/usedUtrs/$(incoming().utr))
+            && (
+              (
+                !exists(/databases/$(database)/documents/config/app)
+                && incoming().inrAmount <= 50000
+                && incoming().coins == incoming().inrAmount
+              )
+              || (
+                exists(/databases/$(database)/documents/config/app)
+                && get(/databases/$(database)/documents/config/app).data.autoVerifyUpi == true
+                && incoming().inrAmount <= get(/databases/$(database)/documents/config/app).data.maxAutoVerifyInr
+                && incoming().coins == incoming().inrAmount * get(/databases/$(database)/documents/config/app).data.coinRate
+              )
+            )
+          )
+        );
+      allow update: if isValidId(requestId)
+        && isAdmin()
+        && isValidTopupRequest(incoming())
+        && existing().status == 'pending'
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'notes']);
+      allow delete: if isValidId(requestId) && isAdmin();
+    }
+
+    // Withdrawal Requests
+    match /withdrawalRequests/{requestId} {
+      allow get: if isValidId(requestId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(requestId)
+        && isVerifiedUser()
+        && isValidWithdrawalRequest(incoming())
+        && incoming().id == requestId
+        && incoming().userId == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time;
+      allow update: if isValidId(requestId)
+        && isAdmin()
+        && isValidWithdrawalRequest(incoming())
+        && existing().status == 'pending'
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'payoutRef', 'notes']);
+      allow delete: if isValidId(requestId) && isAdmin();
+    }
+
+    // Wallet Transactions Ledger
+    match /transactions/{transactionId} {
+      allow get: if isValidId(transactionId) && (isAdmin() || (isSignedIn() && existing().userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isValidId(transactionId)
+        && isVerifiedUser()
+        && isValidTransaction(incoming())
+        && incoming().id == transactionId
+        && incoming().createdAt == request.time
+        && (isAdmin() || incoming().userId == request.auth.uid);
+      allow update: if isValidId(transactionId)
+        && isAdmin()
+        && isValidTransaction(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'description']);
+      allow delete: if isValidId(transactionId) && isAdmin();
+    }
+
+    // Redeem Codes
+    match /redeemCodes/{codeId} {
+      allow get: if isValidId(codeId) && isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isValidId(codeId) && isAdmin() && isValidRedeemCode(incoming(), codeId);
+      allow delete: if isValidId(codeId) && isAdmin();
+      allow update: if isValidId(codeId)
+        && isVerifiedUser()
+        && isValidRedeemCode(incoming(), codeId)
+        && (
+          isAdmin()
+          || (
+            existing().active == true
+            && existing().usedBy.size() < existing().maxUses
+            && !(request.auth.uid in existing().usedBy)
+            && incoming().usedBy.size() == existing().usedBy.size() + 1
+            && request.auth.uid in incoming().usedBy
+            && incoming().code == existing().code
+            && incoming().coins == existing().coins
+            && incoming().maxUses == existing().maxUses
+            && incoming().active == existing().active
+            && incoming().createdAt == existing().createdAt
+            && incoming().diff(existing()).affectedKeys().hasOnly(['usedBy'])
+          )
+        );
+    }
+
+    // Tournaments & Subcollections
+    match /tournaments/{tournamentId} {
+      allow get: if isValidId(tournamentId);
+      allow list: if true;
+      allow create: if isValidId(tournamentId)
+        && isAdmin()
+        && isValidTournament(incoming())
+        && incoming().id == tournamentId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isValidId(tournamentId)
+        && isVerifiedUser()
+        && isValidTournament(incoming())
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin()
+          || (
+            incoming().registeredCount == existing().registeredCount + 1
+            && incoming().registeredCount <= existing().maxSlots
+            && incoming().diff(existing()).affectedKeys().hasOnly(['registeredCount', 'updatedAt'])
+            && existsAfter(/databases/$(database)/documents/tournaments/$(tournamentId)/players/$(request.auth.uid))
+          )
+        );
+      allow delete: if isValidId(tournamentId) && isAdmin();
+
+      match /players/{playerId} {
+        allow get, list: if isSignedIn();
+        allow create: if isValidId(tournamentId)
+          && isValidId(playerId)
+          && isOwner(playerId)
+          && isValidTournamentPlayer(incoming(), playerId)
+          && incoming().createdAt == request.time
+          && exists(/databases/$(database)/documents/tournaments/$(tournamentId))
+          && existsAfter(/databases/$(database)/documents/tournaments/$(tournamentId));
+        allow update: if false;
+        allow delete: if isValidId(tournamentId) && isValidId(playerId) && isAdmin();
+      }
+
+      match /secrets/{secretId} {
+        allow get: if isValidId(tournamentId)
+          && isValidId(secretId)
+          && (
+            isAdmin()
+            || (
+              isVerifiedUser()
+              && exists(/databases/$(database)/documents/tournaments/$(tournamentId)/players/$(request.auth.uid))
+            )
+          );
+        allow list: if isAdmin();
+        allow create, update: if isValidId(tournamentId)
+          && isValidId(secretId)
+          && isAdmin()
+          && isValidRoomSecret(incoming())
+          && incoming().updatedAt == request.time;
+        allow delete: if isValidId(tournamentId) && isValidId(secretId) && isAdmin();
+      }
+    }
+
+    // App Configuration
+    match /config/app {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && isValidPublicConfig(incoming()) && incoming().updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    match /config/admin {
+      allow get, create, update: if isAdmin();
+      allow list, delete: if false;
+    }
+
+    // Admins Allowlist
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list, create, update, delete: if isAdmin();
+    }
+
+    // Admin Email Alert Audit Logs
+    match /adminAlerts/{alertId} {
+      allow get, list: if isAdmin();
+      allow create: if isValidId(alertId)
+        && isVerifiedUser()
+        && isValidAdminAlert(incoming())
+        && incoming().id == alertId
+        && incoming().userId == request.auth.uid
+        && incoming().createdAt == request.time;
+      allow update, delete: if isAdmin();
+    }
+  }
+}
